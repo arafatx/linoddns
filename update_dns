@@ -1,0 +1,37 @@
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
+
+if [ -f .env ]; then
+  source .env
+fi
+
+# Neat eh?  Stolen shamelessly from https://hub.docker.com/r/ssarioglu/myip/dockerfile
+PUBLIC_IP=`dig +short myip.opendns.com @resolver1.opendns.com`
+
+DOMAIN_ID=$(linode-cli domains list --json --pretty | jq ".[] | select(.domain == \"$LINODE_DOMAIN\") | .id")
+if [ -z "$DOMAIN_ID" ]; then
+  echo "Domain not found: $LINODE_DOMAIN"
+  exit 1
+fi
+
+SUBDOMAIN_ID=$(linode-cli domains records-list $DOMAIN_ID --json | jq ".[] | select(.name == \"$LINODE_SUBDOMAIN\") | .id")
+if [ -z "$SUBDOMAIN_ID" ]
+then
+  linode-cli domains records-create $DOMAIN_ID \
+    --type=A \
+    --name=$LINODE_SUBDOMAIN \
+    --target=$PUBLIC_IP \
+    --priority=10 \
+    --weight=5 \
+    --json \
+    --pretty
+else
+  linode-cli domains records-update $DOMAIN_ID $SUBDOMAIN_ID \
+    --type=A \
+    --target=$PUBLIC_IP \
+    --priority=10 \
+    --weight=5 \
+    --json \
+    --pretty
+fi
