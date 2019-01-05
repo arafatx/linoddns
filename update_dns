@@ -3,12 +3,12 @@ set -euo pipefail
 IFS=$'\n\t'
 
 if [ -z `which linode-cli` ]; then
-  echo "This utility requires linode-cli to be installed."
+  echo '{ "error": "This utility requires linode-cli to be installed." }'
   exit 1
 fi
 
 if [ -z `which jq` ]; then
-  echo "This utility requires jq to be installed."
+  echo '{ "error": "This utility requires jq to be installed." }'
   exit 1
 fi
 
@@ -21,7 +21,7 @@ PUBLIC_IP=`dig +short myip.opendns.com @resolver1.opendns.com`
 
 DOMAIN_ID=$(linode-cli domains list --json --pretty | jq ".[] | select(.domain == \"$LINODE_DOMAIN\") | .id")
 if [ -z "$DOMAIN_ID" ]; then
-  echo "Domain not found: $LINODE_DOMAIN"
+  echo "{ \"error\": \"Domain not found: $LINODE_DOMAIN\" }" | jq .
   exit 1
 fi
 
