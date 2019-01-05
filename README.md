@@ -32,9 +32,12 @@ the machine where you run it.
 ## The "dynamic" part
 
 This script does nothing about scheduling.  You'll want to use a scheduling utility of some kind
-to run it periodically.  For instance, to run it via cron every half hour, run `sudo crontab -e`
+to run it periodically.  For instance, to run it via cron every half hour, run `crontab -e`
 and add this line:
 
 ```
-*/30 * * * * /path/to/linoddns/update_dns
+*/30 * * * * /path/to/linoddns/update_dns &> /tmp/linoddns.json
 ```
+
+_Note that the `&> ...` just provides a wee bit of an audit trail, so you can see the result of
+the last run._
