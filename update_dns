@@ -2,6 +2,16 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+if [ -z `which linode-cli` ]; then
+  echo "This utility requires linode-cli to be installed."
+  exit 1
+fi
+
+if [ -z `which jq` ]; then
+  echo "This utility requires jq to be installed."
+  exit 1
+fi
+
 if [ -f .env ]; then
   source .env
 fi
