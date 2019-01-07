@@ -2,34 +2,38 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-if [ -z `which linode-cli` ]; then
+BASEDIR=$(dirname "$0")
+
+if [ -f $BASEDIR/.env ]; then
+  source $BASEDIR/.env
+fi
+
+CLI_BIN=$(which linode-cli || echo $LINODE_CLI_BIN)
+if [ -z "$CLI_BIN" ]; then
   echo '{ "error": "This utility requires linode-cli to be installed." }'
   exit 1
 fi
 
-if [ -z `which jq` ]; then
+JQ_BIN=$(which jq || echo $JQ_WITH_PATH)
+if [ -z "$JQ_BIN" ]; then
   echo '{ "error": "This utility requires jq to be installed." }'
   exit 1
-fi
-
-if [ -f .env ]; then
-  source .env
 fi
 
 # Neat eh?  Stolen shamelessly from https://hub.docker.com/r/ssarioglu/myip/dockerfile
 PUBLIC_IP=`dig +short myip.opendns.com @resolver1.opendns.com`
 
-DOMAIN_ID=$(linode-cli domains list --json --pretty | jq ".[] | select(.domain == \"$LINODE_DOMAIN\") | .id")
+DOMAIN_ID=$($LINODE_CLI_BIN domains list --json --pretty | $JQ_BIN ".[] | select(.domain == \"$LINODE_DOMAIN\") | .id")
 if [ -z "$DOMAIN_ID" ]; then
-  echo "{ \"error\": \"Domain not found: $LINODE_DOMAIN\" }" | jq .
+  echo "{ \"error\": \"Domain not found: $LINODE_DOMAIN\" }" | $JQ_BIN .
   exit 1
 fi
 
-DOMAIN_RECORDS=$(linode-cli domains records-list $DOMAIN_ID --json)
-SUBDOMAIN_ID=$(echo $DOMAIN_RECORDS | jq ".[] | select(.name == \"$LINODE_SUBDOMAIN\") | .id")
+DOMAIN_RECORDS=$($LINODE_CLI_BIN domains records-list $DOMAIN_ID --json)
+SUBDOMAIN_ID=$(echo $DOMAIN_RECORDS | $JQ_BIN ".[] | select(.name == \"$LINODE_SUBDOMAIN\") | .id")
 if [ -z "$SUBDOMAIN_ID" ]
 then
-  linode-cli domains records-create $DOMAIN_ID \
+  $LINODE_CLI_BIN domains records-create $DOMAIN_ID \
     --type=A \
     --name=$LINODE_SUBDOMAIN \
     --target=$PUBLIC_IP \
@@ -38,15 +42,15 @@ then
     --json \
     --pretty
 else
-  SUBDOMAIN_TARGET=$(echo $DOMAIN_RECORDS | jq ".[] | select(.name == \"$LINODE_SUBDOMAIN\") | .target" | sed 's/"//g')
+  SUBDOMAIN_TARGET=$(echo $DOMAIN_RECORDS | $JQ_BIN ".[] | select(.name == \"$LINODE_SUBDOMAIN\") | .target" | sed 's/"//g')
   if [ "$SUBDOMAIN_TARGET" == "$PUBLIC_IP" ]; then
     echo "{
       \"status\": \"OK\", \"message\": \"Record already up to date, noop.\",
       \"subdomain\": \"$LINODE_SUBDOMAIN.$LINODE_DOMAIN\",
       \"hostIp\": \"$SUBDOMAIN_TARGET\"
-    }" | jq .
+    }" | $JQ_BIN .
   else
-    linode-cli domains records-update $DOMAIN_ID $SUBDOMAIN_ID \
+    $LINODE_CLI_BIN domains records-update $DOMAIN_ID $SUBDOMAIN_ID \
       --type=A \
       --target=$PUBLIC_IP \
       --priority=10 \
